@@ -101,10 +101,12 @@ func (r *Request) Do() ([]byte, error) {
 	r.setHeader()
 
 	resp, err := r.client.Do(r.req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return []byte{}, err
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return []byte{}, fmt.Errorf("http status error: %d", resp.StatusCode)
