@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"encoding/json"
+
 	"github.com/andybalholm/cascadia"
 	"github.com/sangchul-sim/godom"
 	"golang.org/x/net/html"
@@ -41,27 +43,35 @@ func getRecordGameHitResultDetailParam(b []byte) (details []*UrlParam) {
 	for _, a := range s.MatchAll(doc) {
 		attr := godom.NewGoQuery(a).GetAttributeByKey("href")
 		if attr.Val != "" {
-			details = append(details, newUrlParamFromQuery(attr.Val))
+			details = append(details, NewUrlParamFromQuery(attr.Val))
 		}
 	}
 	return
 }
 
 type ProtoRecordMatchDividend struct {
-	dividendID   string
-	dividendRate string
-	homeScore    string
-	awayScore    string
-	isHit        bool
+	DividendID   string
+	DividendRate string
+	HomeScore    string
+	AwayScore    string
+	IsHit        bool
 }
 
 type ProtoRecordMatch struct {
-	roundNo    string
-	gameType   string
-	matchTime  time.Time
-	matchStr   string
-	gameTitle  string
-	gameResult string
+	RoundNo    string
+	GameType   string
+	MatchTime  time.Time
+	MatchStr   string
+	GameTitle  string
+	GameResult string
+}
+
+func (p ProtoRecordMatch) Json() string {
+	b, err := json.Marshal(&p)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 func getRecordGameHitResultDetailByDividend(tr *html.Node) (dividends []*ProtoRecordMatchDividend) {
@@ -81,25 +91,25 @@ func getRecordGameHitResultDetailByDividend(tr *html.Node) (dividends []*ProtoRe
 			text := strings.TrimSpace(gq.GetInnerText())
 			switch k {
 			case 0: // dividend id
-				dividend.dividendID = text
+				dividend.DividendID = text
 			case 1: // score
 				homeAwayStr = text
 				if strings.Contains(homeAwayStr, "-") {
 					homeAway = strings.Split(homeAwayStr, "-")
-					dividend.homeScore = homeAway[0]
-					dividend.awayScore = homeAway[1]
+					dividend.HomeScore = homeAway[0]
+					dividend.AwayScore = homeAway[1]
 				} else {
-					dividend.homeScore = homeAwayStr
-					dividend.awayScore = ""
+					dividend.HomeScore = homeAwayStr
+					dividend.AwayScore = ""
 				}
 
 			case 2: // hit
 				span := gq.GetElementsByTagName("span")[0]
-				dividend.dividendRate = strings.TrimSpace(godom.NewGoQuery(span).GetInnerText())
+				dividend.DividendRate = strings.TrimSpace(godom.NewGoQuery(span).GetInnerText())
 				img := gq.GetElementsByTagName("img")[0]
 				attr := godom.NewGoQuery(img).GetAttributeByKey("src")
 				if strings.Contains(attr.Val, "ico_chkon") {
-					dividend.isHit = true
+					dividend.IsHit = true
 				}
 			}
 		}
@@ -115,19 +125,19 @@ func getRecordGameHitResultDetailByMatch(tr *html.Node) *ProtoRecordMatch {
 		text := strings.TrimSpace(godom.NewGoQuery(td).GetInnerText())
 		switch j {
 		case 0: // 게임 A~Z
-			match.roundNo = text
+			match.RoundNo = text
 		case 1: // 종목
 			attr := godom.NewGoQuery(td.FirstChild).GetAttributeByKey("alt")
 			if val, ok := GameType[attr.Val]; ok {
-				match.gameType = val
+				match.GameType = val
 			}
 		case 2: // 경기일, Sun Feb 11 23:15:00 KST 2018
-			match.matchTime, _ = time.Parse("Mon Jan 02 15:04:05 MST 2006", td.FirstChild.Data)
+			match.MatchTime, _ = time.Parse("Mon Jan 02 15:04:05 MST 2006", td.FirstChild.Data)
 		case 3: // 경기시각
 		case 4: // 게임주제
-			match.gameTitle = text
+			match.GameTitle = text
 		case 5: // 프로토결과
-			match.gameResult = text
+			match.GameResult = text
 		}
 	}
 	return &match
@@ -187,8 +197,8 @@ func NumToLetter(i int) string {
  * 기록식 적중결과 리스트
  * @param integer $nPage
  */
-func getRecordGameHitResultListUrl(page int) (string, error) {
-	resultPage, err := getHitResulPage(listKeyPageMap, gameTypeRecord)
+func GetRecordGameHitResultListUrl(page int) (string, error) {
+	resultPage, err := GetHitResulPage(ListKeyPageMap, GameTypeRecord)
 	if err != nil {
 		return "", err
 	}

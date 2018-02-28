@@ -46,38 +46,38 @@ const (
 	paramMethodHitResultDetail   = "detail"
 	paramSelectedLeagueAll       = "전체"
 	paramViewMethodList          = "list"
-	listKeyPageMap               = "list"
-	detailKeyPageMap             = "detail"
-	gameTypeRecord               = "record"
-	gameTypeWinLose              = "winLose"
-	gameTypeSoccerResult         = "soccerResult"
+	ListKeyPageMap               = "list"
+	DetailKeyPageMap             = "detail"
+	GameTypeRecord               = "record"
+	GameTypeWinLose              = "winLose"
+	GameTypeSoccerResult         = "soccerResult"
 )
 
 type pageMap map[string]map[string]string
 
 var gameSchedulePageMap = pageMap{
-	listKeyPageMap: {
-		gameTypeWinLose:      targetPageGameScheduleList,
-		gameTypeRecord:       targetPageGameScheduleList,
-		gameTypeSoccerResult: targetPageGameScheduleList,
+	ListKeyPageMap: {
+		GameTypeWinLose:      targetPageGameScheduleList,
+		GameTypeRecord:       targetPageGameScheduleList,
+		GameTypeSoccerResult: targetPageGameScheduleList,
 	},
-	detailKeyPageMap: {
-		gameTypeWinLose:      targetPageGameScheduleList,
-		gameTypeRecord:       targetPageGameScheduleList,
-		gameTypeSoccerResult: targetPageGameScheduleList,
+	DetailKeyPageMap: {
+		GameTypeWinLose:      targetPageGameScheduleList,
+		GameTypeRecord:       targetPageGameScheduleList,
+		GameTypeSoccerResult: targetPageGameScheduleList,
 	},
 }
 
 var hitResultPageMap = pageMap{
-	listKeyPageMap: {
-		gameTypeWinLose:      targetPageWinningResultList,
-		gameTypeRecord:       targetPageWinningResultList,
-		gameTypeSoccerResult: targetPageWinningResultList,
+	ListKeyPageMap: {
+		GameTypeWinLose:      targetPageWinningResultList,
+		GameTypeRecord:       targetPageWinningResultList,
+		GameTypeSoccerResult: targetPageWinningResultList,
 	},
-	detailKeyPageMap: {
-		gameTypeWinLose:      targetPageWinningResultProto,
-		gameTypeRecord:       targetPageWinningResultProto,
-		gameTypeSoccerResult: targetPageWinningResultToto,
+	DetailKeyPageMap: {
+		GameTypeWinLose:      targetPageWinningResultProto,
+		GameTypeRecord:       targetPageWinningResultProto,
+		GameTypeSoccerResult: targetPageWinningResultToto,
 	},
 }
 
@@ -89,18 +89,92 @@ var GameType = map[string]string{
 	"골프": "golf",
 }
 
-func GetRecordGameHitResultNew(page int) {
-	//doc, err := goquery.NewDocument("http://data.7m.com.cn/result_data/default_kr2.shtml?date=2018-02-22")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-	//	e.Request.Visit(e.Attr("href"))
-	//})
-}
+//func GetRecordGameHitResultNew(page int) {
+//	//doc, err := goquery.NewDocument("http://data.7m.com.cn/result_data/default_kr2.shtml?date=2018-02-22")
+//	//if err != nil {
+//	//	log.Fatal(err)
+//	//}
+//	//c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+//	//	e.Request.Visit(e.Attr("href"))
+//	//})
+//
+//	type League struct {
+//		LeagueName string
+//		LeagueID   int
+//	}
+//
+//	type Team struct {
+//		TeamName string
+//		TeamID   int
+//		League
+//	}
+//
+//	type Dividend struct {
+//		HomeScore    int
+//		AwayScore    int
+//		DividendRate float32
+//	}
+//
+//	type Match struct {
+//		MatchID   int
+//		HomeTeam  Team
+//		AwayTeam  Team
+//		HomeScore int
+//		AwayScore int
+//		Dividend
+//	}
+//
+//	//var matches []Match
+//
+//	t := time.Now()
+//	ymd := t.Format("2006-01-02")
+//	fmt.Println("ymd", ymd)
+//
+//	c := colly.NewCollector(
+//		colly.UserAgent("Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"),
+//		// Visit only domains: reddit.com
+//		colly.AllowedDomains("data.7m.com.cn"),
+//		colly.Async(true),
+//	)
+//
+//	// Find and visit all links
+//	c.OnHTML("#result_td tr", func(e *colly.HTMLElement) {
+//		//c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+//
+//		for _, d := range e.DOM.Nodes {
+//			node := godom.NewGoQuery(d).NodeString()
+//			fmt.Println("e node", node, "\n\n\n")
+//		}
+//
+//		//var cnt int
+//		//e.ForEach("tr", func(cnt int, tr *colly.HTMLElement) {
+//		//
+//		//	for _, d := range tr.DOM.Nodes {
+//		//		node := godom.NewGoQuery(d).NodeString()
+//		//		fmt.Println("d node", node)
+//		//	}
+//		//
+//		//	//var cnt2 int
+//		//	//tr.ForEach("", func(cnt2 int, td *colly.HTMLElement{
+//		//	//
+//		//	//}))
+//		//})
+//		//e.Request.Visit(e.Attr("href"))
+//	})
+//
+//	// Before making a request print "Visiting ..."
+//	c.OnRequest(func(r *colly.Request) {
+//		fmt.Println("Visiting", r.URL.String())
+//
+//	})
+//
+//	c.Visit("http://data.7m.com.cn/result_data/default_kr2.shtml?date=" + ymd)
+//
+//	c.Wait()
+//}
 
 func GetRecordGameHitResult(page int) {
-	listUrl, err := getRecordGameHitResultListUrl(page)
+	listUrl, err := GetRecordGameHitResultListUrl(page)
 	if err != nil {
 		panic(err)
 	}
@@ -121,8 +195,9 @@ func GetRecordGameHitResult(page int) {
 	if err != nil {
 		panic(err)
 	}
-	for i, detail := range getRecordGameHitResultDetailParam(utf8b) {
-		if resultPage, err := getHitResulPage(detailKeyPageMap, gameTypeRecord); err == nil {
+
+	if resultPage, err := GetHitResulPage(DetailKeyPageMap, GameTypeRecord); err == nil {
+		for i, detail := range getRecordGameHitResultDetailParam(utf8b) {
 			detailUrl := strings.Join([]string{BaseUrl, "/", resultPage, "?", detail.BuildQuery()}, "")
 			fmt.Println(detailUrl)
 			if i == 0 {
@@ -170,6 +245,7 @@ func GetPage() {
 	//return
 
 	GetRecordGameHitResult(1)
+	//colly.GetRecordGameHitResultNew(1)
 
 	// http://www.betman.co.kr/winningResultProto.so?method=detail&gameId=G102&gameRound=180366&page=1&selectedGameId=G102
 	// http://www.betman.co.kr/winningResultProto.so?method=detail&gameId=G102&gameRound=180366&selectedGameId=G102
@@ -177,7 +253,7 @@ func GetPage() {
 
 // 기록식 적중결과 상세
 func getRecordGameHitResultDetailUrl(gameRound string, page int) (string, error) {
-	resultPage, err := getHitResulPage(detailKeyPageMap, gameTypeRecord)
+	resultPage, err := GetHitResulPage(DetailKeyPageMap, GameTypeRecord)
 	if err != nil {
 		return "", err
 	}
@@ -199,7 +275,7 @@ func GameSchedulePage(key1, key2 string) (string, error) {
 
 // key1:list or detail
 // key2:WinLose or record or soccerResult
-func getHitResulPage(key1, key2 string) (string, error) {
+func GetHitResulPage(key1, key2 string) (string, error) {
 	keyMap, ok := hitResultPageMap[key1]
 	if !ok {
 		return "", errors.New(key1 + " not found")
