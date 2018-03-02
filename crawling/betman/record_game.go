@@ -1,69 +1,45 @@
 package betman
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"encoding/json"
-
-	"github.com/andybalholm/cascadia"
-	"github.com/sangchul-sim/godom"
-	"golang.org/x/net/html"
+	"github.com/gocolly/colly"
+	"github.com/sangchul-sim/totopang_kit/crawling"
 )
 
-/**
-<div id="contents">
-	<table class="dataH01">
-		<tbody>
-			<tr>
-				<td><img src=...></td>
-				<td class="gname">
-					<a href="winningResultProto.so?method=detail&amp;gameId=G102&amp;gameRound=180356&amp;page=2&amp;selectedGameId=G102" class="lkBlue">
-										프로토 기록식 5회차
-										 (R)
-								</a>
-				</td>
-			</tr>
-		</tbody>
-	</table>
-
-*/
-func getRecordGameHitResultDetailParam(b []byte) (details []*UrlParam) {
-	doc, err := html.Parse(bytes.NewReader(b))
-	if err != nil {
-		panic(err)
-	}
-	s, err := cascadia.Compile("#contents tbody tr td a")
-	if err != nil {
-		panic(fmt.Errorf("error compiling %s", err))
-	}
-	for _, a := range s.MatchAll(doc) {
-		attr := godom.NewGoQuery(a).GetAttributeByKey("href")
-		if attr.Val != "" {
-			details = append(details, NewUrlParamFromQuery(attr.Val))
-		}
-	}
-	return
-}
-
-type ProtoRecordMatchDividend struct {
-	DividendID   string
-	DividendRate string
+type ProtoRecordDividend struct {
+	DividendID   int
+	DividendRate float64
 	HomeScore    string
 	AwayScore    string
-	IsHit        bool
+	Hit          bool
+}
+
+func (p ProtoRecordDividend) Json() string {
+	b, err := json.Marshal(&p)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 type ProtoRecordMatch struct {
-	RoundNo    string
-	GameType   string
-	MatchTime  time.Time
-	MatchStr   string
+	Url       string
+	RoundNo   int
+	GameType  string
+	MatchTime time.Time
+	//MatchStr   string
 	GameTitle  string
 	GameResult string
+}
+
+type ProtoRecordMatchResult struct {
+	match     *ProtoRecordMatch
+	dividends []*ProtoRecordDividend
 }
 
 func (p ProtoRecordMatch) Json() string {
@@ -74,115 +50,15 @@ func (p ProtoRecordMatch) Json() string {
 	return string(b)
 }
 
-func getRecordGameHitResultDetailByDividend(tr *html.Node) (dividends []*ProtoRecordMatchDividend) {
-	s, err := cascadia.Compile("div.viwRap div.lst tbody tr")
-	if err != nil {
-		panic(err)
-	}
-
-	for _, tr := range s.MatchAll(tr) {
-		var (
-			homeAwayStr string
-			homeAway    []string
-			dividend    ProtoRecordMatchDividend
-		)
-		for k, td := range godom.NewGoQuery(tr).GetElementsByTagName("td") {
-			gq := godom.NewGoQuery(td)
-			text := strings.TrimSpace(gq.GetInnerText())
-			switch k {
-			case 0: // dividend id
-				dividend.DividendID = text
-			case 1: // score
-				homeAwayStr = text
-				if strings.Contains(homeAwayStr, "-") {
-					homeAway = strings.Split(homeAwayStr, "-")
-					dividend.HomeScore = homeAway[0]
-					dividend.AwayScore = homeAway[1]
-				} else {
-					dividend.HomeScore = homeAwayStr
-					dividend.AwayScore = ""
-				}
-
-			case 2: // hit
-				span := gq.GetElementsByTagName("span")[0]
-				dividend.DividendRate = strings.TrimSpace(godom.NewGoQuery(span).GetInnerText())
-				img := gq.GetElementsByTagName("img")[0]
-				attr := godom.NewGoQuery(img).GetAttributeByKey("src")
-				if strings.Contains(attr.Val, "ico_chkon") {
-					dividend.IsHit = true
-				}
-			}
-		}
-		dividends = append(dividends, &dividend)
-	}
-
-	return
-}
-
-func getRecordGameHitResultDetailByMatch(tr *html.Node) *ProtoRecordMatch {
-	var match ProtoRecordMatch
-	for j, td := range godom.NewGoQuery(tr).GetElementsByTagName("td") {
-		text := strings.TrimSpace(godom.NewGoQuery(td).GetInnerText())
-		switch j {
-		case 0: // 게임 A~Z
-			match.RoundNo = text
-		case 1: // 종목
-			attr := godom.NewGoQuery(td.FirstChild).GetAttributeByKey("alt")
-			if val, ok := GameType[attr.Val]; ok {
-				match.GameType = val
-			}
-		case 2: // 경기일, Sun Feb 11 23:15:00 KST 2018
-			match.MatchTime, _ = time.Parse("Mon Jan 02 15:04:05 MST 2006", td.FirstChild.Data)
-		case 3: // 경기시각
-		case 4: // 게임주제
-			match.GameTitle = text
-		case 5: // 프로토결과
-			match.GameResult = text
-		}
-	}
-	return &match
-}
-
-func getRecordGameHitResultDetail(b []byte) {
-	doc, err := html.Parse(bytes.NewReader(b))
-	if err != nil {
-		panic(err)
-	}
-
-	var match *ProtoRecordMatch
-	var dividends []*ProtoRecordMatchDividend
-	s, err := cascadia.Compile("#tblSort tbody tr")
-	if err != nil {
-		panic(err)
-	}
-	for i, tr := range s.MatchAll(doc) {
-		switch i {
-		case 0:
-			match = getRecordGameHitResultDetailByMatch(tr)
-		case 1:
-			dividends = getRecordGameHitResultDetailByDividend(tr)
-		}
-	}
-
-	fmt.Println("match:", match)
-	for _, dividend := range dividends {
-		fmt.Println("dividend:", dividend)
-	}
-}
-
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-var letterArr = [...]string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
-	"N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
 
 //func toChar(i int) rune {
 //	return rune('A' - 1 + i)
 //}
 
-// TODO letterArr 대신 letters 를 이용하는 방법 강구할 것
 func LetterToNum(letter string) int {
-	for i, val := range letterArr {
-		if letter == val {
+	for i, a := range letters {
+		if letter == string(a) {
 			return i + 1
 		}
 	}
@@ -204,4 +80,175 @@ func GetRecordGameHitResultListUrl(page int) (string, error) {
 	}
 	queryString := NewHitResultListParam(GameIDRecord, strconv.Itoa(page)).BuildQuery()
 	return BaseUrl + "/" + resultPage + "?" + queryString, nil
+}
+
+/**
+// wanted
+						<tr>
+							<td>1</td>
+							<td>H1~3</td>
+							<td class="pnt">
+								<span>6.80</span>
+								<img src="images/icon/ico_chkoff.gif" alt="" />
+							</td>
+						</tr>
+*/
+func getRecordGameHitResultDividend(tr *colly.HTMLElement, tdCount int) (dividends []*ProtoRecordDividend) {
+	tr.ForEach("div.viwRap div.lst tbody tr", func(n int, tr *colly.HTMLElement) {
+		var (
+			dividend ProtoRecordDividend
+			count    int
+		)
+		tr.ForEach("td", func(k int, td *colly.HTMLElement) {
+			text := strings.TrimSpace(td.Text)
+			switch k {
+			case 0: // dividend id
+				if dividendID, err := strconv.Atoi(text); err == nil {
+					dividend.DividendID = dividendID
+				}
+			case 1: // score
+				if strings.Contains(text, "-") {
+					score := strings.Split(text, "-")
+					dividend.HomeScore = score[0]
+					dividend.AwayScore = score[1]
+				} else {
+					dividend.HomeScore = text
+					dividend.AwayScore = ""
+				}
+
+			case 2: // hit
+				if dividendRate, err := strconv.ParseFloat(td.ChildText("span"), 64); err == nil {
+					dividend.DividendRate = dividendRate
+				}
+				imgSrc := td.ChildAttr("img", "src")
+				if strings.Contains(imgSrc, "ico_chkon") {
+					dividend.Hit = true
+				}
+			}
+			count = k + 1
+		})
+		if tdCount == count && dividend.DividendID > 0 && dividend.DividendRate > 0 {
+			dividends = append(dividends, &dividend)
+		}
+	})
+	return
+}
+
+/**
+// wanted
+		<tr>
+			<td>A</td>
+			<td><img src="images/icon/ico_item_basketball.gif" alt="농구" /></td>
+			<td>18-02-26 (월)</td>
+			<td>19:00</td>
+			<td class="sbj">
+				<!--
+				<a href="javascript:showBuyableGameDetail('A','winResultProtoRecordDetail.html');">
+				프리미어리그 아스널 - 애스턴빌라 최종점수는?
+				</a>
+				 -->
+				 WKBL 삼성생명-신한은행 최종점수차
+			</td>
+			<td class="bgRes01">5번. (H13~15) 13.2배</td>
+		</tr>
+
+// not wanted
+						<tr>
+							<td>1</td>
+							<td>H1~3</td>
+							<td class="pnt">
+								<span>6.80</span>
+								<img src="images/icon/ico_chkoff.gif" alt="" />
+							</td>
+						</tr>
+*/
+func getRecordGameHitResultMatch(tr *colly.HTMLElement, tdCount int) *ProtoRecordMatch {
+	var (
+		match ProtoRecordMatch
+		count int
+	)
+	tr.ForEach("td", func(n int, td *colly.HTMLElement) {
+		text := strings.TrimSpace(td.Text)
+		switch n {
+		case 0: // 게임 A~Z
+			//match.RoundNo = strconv.Itoa(LetterToNum(text))
+			match.RoundNo = LetterToNum(text)
+		case 1: // 종목
+			alt := td.ChildAttr("img", "alt")
+			if val, ok := GameType[alt]; ok {
+				match.GameType = val
+			}
+		case 2: // 경기일, Sun Feb 11 23:15:00 KST 2018
+			if matchTime, err := time.Parse("Mon Jan 02 15:04:05 MST 2006", text); err == nil {
+				match.MatchTime = matchTime
+			}
+		case 3: // 경기시각
+		case 4: // 게임주제
+			match.GameTitle = text
+		case 5: // 프로토결과
+			match.GameResult = text
+		}
+		count = n + 1
+	})
+	if tdCount == count && match.GameType != "" && match.MatchTime.String() != "" {
+		return &match
+	}
+	return nil
+}
+
+func GetRecordGameHitResult(page int) {
+	listUrl, err := GetRecordGameHitResultListUrl(page)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(listUrl)
+
+	req := crawling.NewRequest()
+	req.SetAgentByOs(crawling.OsWindows)
+
+	c := colly.NewCollector(
+		colly.UserAgent(req.UserAgent),
+	)
+	detailCollector := c.Clone()
+
+	c.OnHTML("#contents tbody tr td a", func(a *colly.HTMLElement) {
+		if resultPage, err := GetHitResulPage(DetailKeyPageMap, GameTypeRecord); err == nil {
+			detailUrl := strings.Join([]string{
+				BaseUrl,
+				"/",
+				resultPage,
+				"?",
+				NewURLParamFromURL(a.Attr("href")).BuildQuery(),
+			}, "")
+			detailCollector.Visit(detailUrl)
+		}
+	})
+
+	var results []*ProtoRecordMatchResult
+	detailCollector.OnHTML("#tblSort tbody", func(d *colly.HTMLElement) {
+		var result ProtoRecordMatchResult
+		d.ForEach("tr", func(n int, tr *colly.HTMLElement) {
+			switch n {
+			case 0:
+				if match := getRecordGameHitResultMatch(tr, 6); match != nil {
+					result.match = match
+					result.match.Url = d.Request.URL.String()
+				}
+			case 1:
+				result.dividends = getRecordGameHitResultDividend(tr, 3)
+			}
+		})
+		if result.match != nil {
+			results = append(results, &result)
+		}
+	})
+	c.Visit(listUrl)
+
+	for i, _ := range results {
+		fmt.Println("match:", results[i].match.Json())
+		for _, dividend := range results[i].dividends {
+			fmt.Println("dividends:", dividend.Json())
+		}
+		fmt.Println("\n\n")
+	}
 }

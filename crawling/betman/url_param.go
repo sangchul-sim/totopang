@@ -87,7 +87,7 @@ func (p *UrlParam) SetByTagName(key, val string) {
 	}
 }
 
-func NewUrlParamFromQuery(query string) *UrlParam {
+func NewURLParamFromURL(query string) *UrlParam {
 	urlParam := newUrlParam()
 	var seperator = "?"
 	if strings.Contains(query, seperator) {
